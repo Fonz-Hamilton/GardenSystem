@@ -68,6 +68,31 @@ vcpkg_installed/
 Testing/
 .cache/
 
-# my junk (platformio etc)
-*.pio
-*.vscode
+### My junk (platformio etc) ###
+
+# pio build output
+.pio/
+.piolibdeps/
+libdeps/
+
+# Platformio environmenst and cache
+.pioenvs/
+.pio/libdeps/
+.pio/build
+
+# ESP-IDF and Python env
+.pio/penv/
+.env/
+
+# Compiled Binaries
+*.elf
+*.bin
+*.map
+
+# VS code settings
+.vscode/*
+
+# Python cache
+__pycache__/
+*.pyc
+
