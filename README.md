@@ -67,6 +67,7 @@ By default, the I2C address is 0x77.  If you add a jumper from SDO to GND with a
 
 
 GY-8511 ML8511 UVB UV Rays Sensor
+
     1       -   Vin; Power in
     2       -   3V3; Voltage output from voltage regulator
     3       -   GND; Common Ground
@@ -76,6 +77,7 @@ GY-8511 ML8511 UVB UV Rays Sensor
 
 
 SHT31 WEATHER-PROOF TEMPERATURE
+
 12C address is 0x44
 
     Red     -   VCC
