@@ -1,7 +1,7 @@
-## GardenSystem
-# Automated watering for small garden
+# GardenSystem
+ Automated watering for small garden
 
-# Pinout and Wires
+## Pinout and Wires
 
 ESP32-S3
 
@@ -35,6 +35,7 @@ ESP32-S3
 
 
 DfRobot moisture sensor:
+
     Red     -   VCC
     Black   -   GND
     Yellow  -   Signal
@@ -43,6 +44,7 @@ DfRobot moisture sensor:
 
 
 VEML7700 Ambient Light Sensor:
+
     1       -   Vin; Power in
     2       -   3Vo; 3.3V output from voltage regulator
     3       -   GND; Common Ground
