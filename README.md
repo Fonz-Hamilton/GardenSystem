@@ -3,7 +3,7 @@
 
 ## Pinout and Wires
 
-ESP32-S3
+ESP32-S3 (Hosyond N16R8)
 
                                                                       ┌────────────────┐
                                                                       │                │ 
