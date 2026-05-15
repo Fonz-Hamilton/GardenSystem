@@ -48,8 +48,8 @@ VEML7700 Ambient Light Sensor:
     1       -   Vin; Power in
     2       -   3Vo; 3.3V output from voltage regulator
     3       -   GND; Common Ground
-    4       -   SCL; 12C clock pin. Connect to microcontroller 12C clock line
-    5       -   SDA; 12C data pin. Connect to Microcontroller 12C Data Line
+    4       -   SCL; I2C clock pin. Connect to microcontroller I2C clock line
+    5       -   SDA; I2C data pin. Connect to Microcontroller I2C Data Line
 
 
 
@@ -78,9 +78,9 @@ GY-8511 ML8511 UVB UV Rays Sensor
 
 SHT31 WEATHER-PROOF TEMPERATURE
 
-12C address is 0x44
+I2C address is 0x44
 
     Red     -   VCC
     Black   -   GND
-    Yellow  -   SCK or SCL (Datasheet says SCL while tag on it says SCK); SPI clock pin or 12C clock pin. Connect to microcontroller 12C clock line
-    Green   -   SDA; 12C data pin. Connect to Microcontroller 12C Data Line
+    Yellow  -   SCK or SCL (Datasheet says SCL while tag on it says SCK); SPI clock pin or I2C clock pin. Connect to microcontroller I2C clock line
+    Green   -   SDA; I2C data pin. Connect to Microcontroller I2C Data Line
