@@ -44,6 +44,7 @@ DfRobot moisture sensor:
 
 
 VEML7700 Ambient Light Sensor:
+Default I2C Address: 0x10
 
     1       -   Vin; Power in
     2       -   3Vo; 3.3V output from voltage regulator
