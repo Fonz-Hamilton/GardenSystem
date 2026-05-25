@@ -13,7 +13,7 @@
 #define I2C_MASTER_FREQ_HZ     100000
 
 #define SHT31_SENSOR_ADDRESS   0x44
-#define BME280_SENSOR_ADDRESS   0x76
+#define BME280_SENSOR_ADDRESS   0x77
 
 void i2c_init(void);
 void sht31_read(void);
@@ -37,6 +37,7 @@ static i2c_system_t i2c;
 struct bme280_dev bme280_device;
 struct bme280_calib_data bme280_calibration_data;
 struct bme280_data bme280_comp_data;
+struct bme280_settings bme280_device_settings;
 
 void app_main() {
 
@@ -176,7 +177,7 @@ void sht31_read() {
             float humidity = 100.0f * ((float)raw_humidity / 65535.0f);
 
             printf("SHT31 Temperature: %.3f F (%.3f C)\n", temperature_f, temperature_c);
-            printf("SHT31 Humidity: %.3f %%rH\n\n", humidity);
+            printf("SHT31 Humidity: %.3f %% rH\n\n", humidity);
         }
 
         else {
@@ -243,19 +244,44 @@ void bme280_initialize() {
     bme280_device.delay_us = bme280_delay_us;
      
     esp_err_t result = bme280_init(&bme280_device);
-    if(result == ESP_OK) {
-        printf("bme280 init worked I think\n");
-    }
-    else {
-        printf("BME280 error code for init: %d\n", result);
-    }
 
     if(result == ESP_OK) {
         printf("bme280 initialized\n");
+
+        
     }
     else {
         printf("bme280 failed to initialize\n");
+        printf("BME280 error code for init: %d\n", result);
     }
+
+    bme280_device_settings.osr_h = BME280_OVERSAMPLING_1X;
+    bme280_device_settings.osr_p = BME280_OVERSAMPLING_1X;
+    bme280_device_settings.osr_t = BME280_OVERSAMPLING_1X;
+    bme280_device_settings.filter = BME280_FILTER_COEFF_OFF;
+    bme280_device_settings.standby_time = BME280_STANDBY_TIME_125_MS;
+
+    uint8_t settings_sel = BME280_SEL_OSR_PRESS | BME280_SEL_OSR_TEMP | BME280_SEL_OSR_HUM | BME280_SEL_FILTER;
+
+    result = bme280_set_sensor_settings(settings_sel, &bme280_device_settings, &bme280_device);
+
+    if(result == ESP_OK) {
+        printf("BME280 sensor settings set\n");
+    }
+    else {
+        printf("Could not set settings for BME280\n");
+    }
+
+    result = bme280_set_sensor_mode(BME280_POWERMODE_NORMAL, &bme280_device);
+    if(result == ESP_OK) {
+        printf("BME280 powermode set\n");
+    }
+    else {
+        printf("BME280 powermode NOT set\n");
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(100));
+    
     
 }
 
@@ -288,8 +314,8 @@ void bme280_read() {
         
 
         printf("bme280 Temperature: %.2f F (%.2f C)\n", (bme280_comp_data.temperature * (9.0f/5.0f) + 32.0f), bme280_comp_data.temperature);
-        printf("bme280 Humidity: %.3f %%rH\n", bme280_comp_data.humidity);
-        printf("bme280 Pressure: %.2f hPa\n\n", bme280_comp_data.pressure);
+        printf("bme280 Humidity: %.3f %% rH\n", bme280_comp_data.humidity);
+        printf("bme280 Pressure: %.2f hPa\n\n", bme280_comp_data.pressure  / 100.0);
 
     }
     else {
