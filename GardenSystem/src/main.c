@@ -255,9 +255,9 @@ void bme280_initialize() {
         printf("BME280 error code for init: %d\n", result);
     }
 
-    bme280_device_settings.osr_h = BME280_OVERSAMPLING_1X;
-    bme280_device_settings.osr_p = BME280_OVERSAMPLING_1X;
-    bme280_device_settings.osr_t = BME280_OVERSAMPLING_1X;
+    bme280_device_settings.osr_h = BME280_OVERSAMPLING_4X;
+    bme280_device_settings.osr_p = BME280_OVERSAMPLING_4X;
+    bme280_device_settings.osr_t = BME280_OVERSAMPLING_4X;
     bme280_device_settings.filter = BME280_FILTER_COEFF_OFF;
     bme280_device_settings.standby_time = BME280_STANDBY_TIME_125_MS;
 
