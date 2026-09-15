@@ -15,10 +15,13 @@
 
 #define SHT31_SENSOR_ADDRESS   0x44
 #define BME280_SENSOR_ADDRESS   0x77
+#define VEML7700_SENSOR_ADDRESS  0x10
 
+void bme280_test_chip_id(void);
 void i2c_init(void);
 void adc_init(void);
 void sht31_read(void);
+void veml7700_read(void);
 void bme280_initialize();
 void bme280_read(void);
 void ml8511_read(void);
@@ -31,6 +34,7 @@ typedef struct {
     i2c_master_bus_handle_t bus;
     i2c_master_dev_handle_t sht31;
     i2c_master_dev_handle_t bme280;
+    i2c_master_dev_handle_t veml7700;
 } i2c_system_t;
 
 typedef struct {
@@ -51,14 +55,13 @@ void app_main() {
     
     // delay to have time for the output to print to monitor
     vTaskDelay(pdMS_TO_TICKS(2000));
-
     i2c_init();
     adc_init();
     bme280_initialize();
     printf("garden controller online\n");
 
     while(true) {
-        
+        bme280_test_chip_id();
         sht31_read();
         printf("\n");
         bme280_read();
@@ -66,6 +69,13 @@ void app_main() {
         ml8511_read();
         //vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
+        
+    /*while (true)
+{
+    bme280_test_chip_id();
+    vTaskDelay(pdMS_TO_TICKS(100));
+}
+    */
 }
 
 void i2c_init() {
@@ -100,7 +110,10 @@ void i2c_init() {
     // add SHT31 to bus
     ESP_ERROR_CHECK(i2c_master_bus_add_device(i2c.bus, &sht31_cfg, &i2c.sht31));
 
-    printf("SHT31 sensor initialized to i2c\n");
+    printf("SHT31 sensor added to i2c bus\n");
+    
+    // // ~*~*~*~*~*~*~ load bearing read function ~*~*~*~*~*~*~
+    //sht31_read();
 
     /*
     #########################################################################################
@@ -115,14 +128,27 @@ void i2c_init() {
 
     // add BME280 to bus
     ESP_ERROR_CHECK(i2c_master_bus_add_device(i2c.bus, &bme280_cfg, &i2c.bme280));
+    bme280_test_chip_id();
+    bme280_test_chip_id();
 
-    printf("BME280 sensor initialized to i2c\n");
+    printf("BME280 sensor added to i2c bus\n");
+   
 
     /*
     #########################################################################################
     */
 
-    
+    // configure VEML7700 device
+    i2c_device_config_t veml7700_cfg = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = VEML7700_SENSOR_ADDRESS,
+        .scl_speed_hz = I2C_MASTER_FREQ_HZ,
+    };
+
+    // add VEML7700 to bus
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(i2c.bus, &veml7700_cfg, &i2c.veml7700));
+
+    printf("VEML7700 sensor added to i2c bus\n");
 
 }
 
@@ -142,7 +168,7 @@ void adc_init() {
     // set to adc 1 channel 3 (gpio4)
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc.ml8511, ADC_CHANNEL_3, &ml8511_chan_cfg));
     
-    printf("ML8511 sensor has been initialized\n");
+    printf("ML8511 sensor has been initialized on ADC\n");
 }
 
 void ml8511_read() {
@@ -232,6 +258,14 @@ void sht31_read() {
     }
 }
 
+void veml7700_read() {
+    /*
+    The VEML7700 contains actual six 16 bit command codes for operation control, parameter setup, and result buffering. All
+    registers are accessible via I2C communication.
+    */
+
+}
+
 void bme280_initialize() {
 
     /*
@@ -286,16 +320,20 @@ void bme280_initialize() {
     bme280_device.read = bme280_i2c_read;
     bme280_device.write = bme280_i2c_write;
     bme280_device.delay_us = bme280_delay_us;
+
+    // ~*~*~*~*~*~*~ load bearing test functions ~*~*~*~*~*~*~
+    //bme280_test_chip_id();
+    //bme280_test_chip_id();
      
-    esp_err_t result = bme280_init(&bme280_device);
+    int8_t result = bme280_init(&bme280_device);
 
     if(result == ESP_OK) {
-        printf("bme280 initialized\n");
+        printf("bme280 configured\n");
 
         
     }
     else {
-        printf("bme280 failed to initialize\n");
+        printf("bme280 failed to configure\n");
         printf("BME280 error code for init: %d\n", result);
     }
 
@@ -365,7 +403,7 @@ void bme280_read() {
 
     }
     else {
-        printf("bme280_get_sensor data!! shit didnt work!!\n");
+        printf("bme280_get_sensor_data error!! shit didnt work!!\n");
     }
 
 
@@ -403,15 +441,22 @@ BME280_INTF_RET_TYPE bme280_i2c_read(uint8_t reg_addr, uint8_t *data, uint32_t l
     esp_err_t result;
 
     result = i2c_master_transmit_receive(i2c_ptr->bme280, &reg_addr, 1, data, len, -1);
+
     
+
+    /*// debug ----------------------------------------------------
+    printf("BME280 I2C read: reg=0x%02X len=%lu result=%s\n",
+       reg_addr,
+       len,
+       esp_err_to_name(result));
+    */// end debug -------------------------------------------------
 
     if(result != ESP_OK) {
         return result;
     }
-    else {
-       
-        return result;
-    }
+    
+    return result;
+    
 
 }
 
@@ -441,6 +486,24 @@ BME280_INTF_RET_TYPE bme280_i2c_write(uint8_t reg_addr, const uint8_t *data, uin
 void bme280_delay_us(uint32_t period, void *intf_ptr) {
     ets_delay_us(period);
 }
+void bme280_test_chip_id()
+{
+    uint8_t reg = 0xD0;
+    uint8_t chip_id;
+
+    esp_err_t result = i2c_master_transmit_receive(
+        i2c.bme280,
+        &reg,
+        1,
+        &chip_id,
+        1,
+        -1
+    );
+
+    printf("BME280 chip ID read result: %s\n", esp_err_to_name(result));
+    printf("BME280 chip ID: 0x%02X\n", chip_id);
+}
+
 
 
 
