@@ -113,7 +113,7 @@ void i2c_init() {
     printf("SHT31 sensor added to i2c bus\n");
     
     // // ~*~*~*~*~*~*~ load bearing read function ~*~*~*~*~*~*~
-    //sht31_read();
+    sht31_read();
 
     /*
     #########################################################################################
@@ -128,8 +128,8 @@ void i2c_init() {
 
     // add BME280 to bus
     ESP_ERROR_CHECK(i2c_master_bus_add_device(i2c.bus, &bme280_cfg, &i2c.bme280));
-    bme280_test_chip_id();
-    bme280_test_chip_id();
+    //bme280_test_chip_id();
+    //bme280_test_chip_id();
 
     printf("BME280 sensor added to i2c bus\n");
    
