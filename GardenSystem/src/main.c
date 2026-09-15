@@ -6,6 +6,7 @@
 #include <rom/ets_sys.h>
 #include "esp_err.h"
 #include "bme280.h"
+#include "esp_adc/adc_oneshot.h"
 
 #define I2C_MASTER_SCL_IO      9
 #define I2C_MASTER_SDA_IO      8
@@ -16,9 +17,11 @@
 #define BME280_SENSOR_ADDRESS   0x77
 
 void i2c_init(void);
+void adc_init(void);
 void sht31_read(void);
 void bme280_initialize();
 void bme280_read(void);
+void ml8511_read(void);
 BME280_INTF_RET_TYPE bme280_i2c_read(uint8_t reg_addr, uint8_t *data, uint32_t len, void *intf_ptr);
 BME280_INTF_RET_TYPE bme280_i2c_write(uint8_t reg_addr, const uint8_t *data, uint32_t len, void *intf_ptr);
 void bme280_delay_us(uint32_t period, void *intf_ptr);
@@ -30,9 +33,14 @@ typedef struct {
     i2c_master_dev_handle_t bme280;
 } i2c_system_t;
 
+typedef struct {
+    adc_oneshot_unit_handle_t ml8511;
+} adc_system_t;
+
 
 
 static i2c_system_t i2c;
+static adc_system_t adc;
 
 struct bme280_dev bme280_device;
 struct bme280_calib_data bme280_calibration_data;
@@ -40,8 +48,12 @@ struct bme280_data bme280_comp_data;
 struct bme280_settings bme280_device_settings;
 
 void app_main() {
+    
+    // delay to have time for the output to print to monitor
+    vTaskDelay(pdMS_TO_TICKS(2000));
 
     i2c_init();
+    adc_init();
     bme280_initialize();
     printf("garden controller online\n");
 
@@ -50,6 +62,8 @@ void app_main() {
         sht31_read();
         printf("\n");
         bme280_read();
+        printf("\n");
+        ml8511_read();
         //vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
@@ -108,6 +122,36 @@ void i2c_init() {
     #########################################################################################
     */
 
+    
+
+}
+
+void adc_init() {
+    adc_oneshot_unit_init_cfg_t ml8511_cfg = {
+        .unit_id = ADC_UNIT_1,                  // adc 1
+        .ulp_mode = ADC_ULP_MODE_DISABLE,
+    };
+
+    ESP_ERROR_CHECK(adc_oneshot_new_unit(&ml8511_cfg, &adc.ml8511));
+
+    adc_oneshot_chan_cfg_t ml8511_chan_cfg = {
+        .bitwidth = ADC_BITWIDTH_DEFAULT,
+        .atten = ADC_ATTEN_DB_12,
+    };
+
+    // set to adc 1 channel 3 (gpio4)
+    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc.ml8511, ADC_CHANNEL_3, &ml8511_chan_cfg));
+    
+    printf("ML8511 sensor has been initialized\n");
+}
+
+void ml8511_read() {
+    int raw_value;
+
+    ESP_ERROR_CHECK(adc_oneshot_read(adc.ml8511, ADC_CHANNEL_3, &raw_value));
+
+    printf("UV ADC raw value: %d\n", raw_value);
+    vTaskDelay(pdMS_TO_TICKS(2000));
 }
 
 void sht31_read() {
@@ -285,6 +329,8 @@ void bme280_initialize() {
     
 }
 
+
+
 void bme280_read() {
     
     /* TODO: move to readme. also not really needed since im using the api. still its nice to know but the compensation math looks ass
@@ -322,10 +368,6 @@ void bme280_read() {
         printf("bme280_get_sensor data!! shit didnt work!!\n");
     }
 
-    
-
-    
-    
 
     //struct bme280_uncomp_data uncomp_data;
 
