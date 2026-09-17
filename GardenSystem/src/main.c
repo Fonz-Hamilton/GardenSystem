@@ -11,7 +11,7 @@
 #define I2C_MASTER_SCL_IO      9
 #define I2C_MASTER_SDA_IO      8
 #define I2C_MASTER_NUM         I2C_NUM_0
-#define I2C_MASTER_FREQ_HZ     100000
+#define I2C_MASTER_FREQ_HZ     100000       // standard 100,000
 
 #define SHT31_SENSOR_ADDRESS   0x44
 #define BME280_SENSOR_ADDRESS   0x77
@@ -61,25 +61,20 @@ void app_main() {
     printf("garden controller online\n");
 
     while(true) {
+        printf("while loop\n");
         bme280_test_chip_id();
         sht31_read();
         printf("\n");
         bme280_read();
         printf("\n");
         ml8511_read();
-        //vTaskDelay(1000 / portTICK_PERIOD_MS);
+        
     }
         
-    /*while (true)
-{
-    bme280_test_chip_id();
-    vTaskDelay(pdMS_TO_TICKS(100));
-}
-    */
 }
 
 void i2c_init() {
-
+    
     //I2C master bus configuration
     i2c_master_bus_config_t i2c_mst_config = {
         .clk_source = I2C_CLK_SRC_DEFAULT,
@@ -110,10 +105,10 @@ void i2c_init() {
     // add SHT31 to bus
     ESP_ERROR_CHECK(i2c_master_bus_add_device(i2c.bus, &sht31_cfg, &i2c.sht31));
 
-    printf("SHT31 sensor added to i2c bus\n");
+    printf("SHT31 handle added to i2c bus\n");
     
     // // ~*~*~*~*~*~*~ load bearing read function ~*~*~*~*~*~*~
-    sht31_read();
+    //sht31_read();
 
     /*
     #########################################################################################
@@ -131,7 +126,7 @@ void i2c_init() {
     //bme280_test_chip_id();
     //bme280_test_chip_id();
 
-    printf("BME280 sensor added to i2c bus\n");
+    printf("BME280 handle added to i2c bus\n");
    
 
     /*
@@ -148,7 +143,9 @@ void i2c_init() {
     // add VEML7700 to bus
     ESP_ERROR_CHECK(i2c_master_bus_add_device(i2c.bus, &veml7700_cfg, &i2c.veml7700));
 
-    printf("VEML7700 sensor added to i2c bus\n");
+    printf("VEML7700 handle added to i2c bus\n");
+
+    
 
 }
 
@@ -168,7 +165,7 @@ void adc_init() {
     // set to adc 1 channel 3 (gpio4)
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc.ml8511, ADC_CHANNEL_3, &ml8511_chan_cfg));
     
-    printf("ML8511 sensor has been initialized on ADC\n");
+    printf("ML8511 handle has been initialized on ADC\n");
 }
 
 void ml8511_read() {
@@ -260,8 +257,108 @@ void sht31_read() {
 
 void veml7700_read() {
     /*
-    The VEML7700 contains actual six 16 bit command codes for operation control, parameter setup, and result buffering. All
+    // ********* Again move to Readme *************
+
+    ALS (Ambient Light Sensor)
+    The VEML7700 contains actual six  user accessible 16 bit command codes for operation control, parameter setup, and result buffering. All
     registers are accessible via I2C communication.
+
+    The least significant bit (LSB) defines read or write mode.
+    According 8 bit the bus address is then 0010 0000 = 20h for
+    write and 0010 0001 = 21h for read.
+
+    Send byte       Write command to VEML7700
+     ____________________________________________________________________________________________________________
+    | S |   Slave Address   | Wr |~A~|   Command Code    |~A~|   Data byte (LSB) |~A~|   Data byte (MSB) |~A~| P |
+    |___|___________________|____|___|___________________|___|___________________|___|___________________|___|___|
+
+    Receive byte    Read data from VEML7700
+    _____________________________________________________________________________________________________________________________________________
+    | S |   Slave Address   | Wr |~A~|   Command Code    |~A~| S |  Slave Address   | Rd |~A~|  ~Data byte (LSB)~| A |  ~Data byte (MSB)~| N | P |
+    |___|___________________|____|___|___________________|___|___|__________________|____|___|___________________|___|___________________|___|___|
+
+    S = start condition         ~ VEML7700 response ; else host action
+    P = stop condition
+    A = Aknowledge
+    N = No Aknowledge
+
+
+    _________________________________________________________________________________________________________________________
+    |    Command code    |      Register Name   |   Bit     |               Function/Description                    |  R/W  |
+    |                    |       & Address      |           |                                                       |       |
+    |____________________|______________________|___________|_______________________________________________________|_______|
+    |       00           |      ALS_CONF_0      |   15:0    | ALS gain, integration time, interrupt, and shutdown   | R / W |
+    |                    |        (0x00)        |           |                                                       |       |
+    |____________________|______________________|___________|_______________________________________________________|_______|
+    |                    |                      |   15:8    | ALS high threshold window setting (MSB)               | R / W |
+    |       01           |      ALS_WH          |___________|_______________________________________________________|_______|
+    |                    |      (0x01)          |   7:0     | ALS high threshold window setting (LSB)               | R / W |
+    |____________________|______________________|___________|_______________________________________________________|_______|
+    |                    |                      |   15:8    | ALS low threshold window setting (MSB)                | R / W |
+    |       02           |      ALS_WL          |___________|_______________________________________________________|_______|
+    |                    |      (0x02)          |   7:0     | ALS low threshold window setting (LSB)                | R / W |
+    |____________________|______________________|___________|_______________________________________________________|_______|
+    |       03           |      Power Saving    |           |                                                       |       |
+    |                    |       (0x03)         |   15:0    | Set (15:3) 0000 0000 0000 0b                          | R / W | 
+    |____________________|______________________|___________|_______________________________________________________|_______|
+    |                    |                      |   15:0    | MSB 8 bits data of whole ALS 16 bits                  |   R   |
+    |       04           |      ALS             |___________|_______________________________________________________|_______|
+    |                    |      (0x04)          |   7:0     | LSB 8 bits data of whole ALS 16 bits                  |   R   |
+    |____________________|______________________|___________|_______________________________________________________|_______|
+    |                    |                      |   15:0    | MSB 8 bits data of whole WHITE 16 bits                |   R   |
+    |       05           |      White           |___________|_______________________________________________________|_______|
+    |                    |      (0x05)          |   7:0     | LSB 8 bits data of whole WHITE 16 bits                |   R   |
+    |____________________|______________________|___________|_______________________________________________________|_______|
+    |       06           |      ALS_INT         |           |                                                       |       |
+    |                    |      (0x06)          |   15:0    | ALS INT trigger event                                 |   R   |
+    |____________________|______________________|___________|_______________________________________________________|_______|
+    |       07           |      ID              |           |                                                       |       |
+    |                    |      (0x07)          |   15:0    | Device ID                                             |   R   |
+    |____________________|______________________|___________|_______________________________________________________|_______|
+
+    Config register (0x00)
+    Bit:  15 14 13  12 11   10          9  8  7  6          5  4        3  2        1           0
+          ────────  ─────   ──          ──────────          ─────       ────        ────        ─
+          Reserved   Gain   Reserved    integration time    Persist     Reserved    INT_EN      Shutdown
+          set 000b          set 0b                                      set 00b     interrupt
+
+    High Threshold window setting (0x01)
+    Bit:  15 14 13 12 11 10 9 8     7 6 5 4 3 2 1 0
+          ─────────────────────     ────────────────
+          ALS high threshold MSB    ALS high threshold LSB
+
+    Low Threshold window setting (0x02)
+    Bit:  15 14 13 12 11 10 9 8     7 6 5 4 3 2 1 0
+          ─────────────────────     ───────────────
+          ALS low threshold MSB    ALS low threshold LSB
+
+    Power saving mode register (0x03)
+    Bit:  15 14 13 12 11 10 9 8 7 6 5 4 3       2 1     0
+          ──────────────────────────────        ───     ─
+                Reserved set 0                  Mode    enable
+
+    ALS High Resolution Output Data register (0x04)
+    Bit:  15 14 13 12 11 10 9 8     7 6 5 4 3 2 1 0
+          ─────────────────────     ───────────────
+          ALS high resolution MSB    ALS high resolution LSB
+
+    White channel Output Data register (0x05)
+    Bit:  15 14 13 12 11 10 9 8     7 6 5 4 3 2 1 0
+          ─────────────────────     ───────────────
+          White channel output MSB    White channel output LSB
+
+    Interrupt status register (0x06)
+    Bit:    15              14              13 12 11 10 9 8 7 6 5 4 3 2 1 0
+            ──              ──              ────────────────────────────────
+          int_th_low       int_th_high          Reserved
+
+    int_th_low  - R bit. Indicated a low threshold exceed
+    int_th_high - R bit. Indicated a high threshold exceed
+          
+    Device ID register (0x07)
+    Bit:  15 14 13 12 11 10 9           8 7 6 5 4 3 2 1 0
+          ───────────────────           ─────────────────
+        Slave address option code       Device ID code                 
     */
 
 }
@@ -269,6 +366,7 @@ void veml7700_read() {
 void bme280_initialize() {
 
     /*
+    *****Dont need any of this shit but its interesting *********
     Each compensation word is a 16-bit signed or
     unsigned integer value stored in two’s complement. As the memory is organized into 8-bit words, two
     words must always be combined in order to represent the compensation word. The 8-bit registers are
@@ -304,16 +402,7 @@ void bme280_initialize() {
     @param[in, out] intf_ptr  : Void pointer that can enable the linking of descriptors
                                 for interface related call backs.
     */
-    /*
-    uint8_t reg = 0xF7;
-    esp_err_t rslt = i2c_master_transmit(i2c.bme280, &reg, 8, 100);
-    if(rslt == ESP_OK) {
-        printf("trasmit in initialize worked?\n");
-    }
-    else {
-        printf("trasmit failed\n");
-    }
-    */
+    
     
     bme280_device.intf = BME280_I2C_INTF;
     bme280_device.intf_ptr = &i2c;
@@ -321,15 +410,13 @@ void bme280_initialize() {
     bme280_device.write = bme280_i2c_write;
     bme280_device.delay_us = bme280_delay_us;
 
-    // ~*~*~*~*~*~*~ load bearing test functions ~*~*~*~*~*~*~
-    //bme280_test_chip_id();
-    //bme280_test_chip_id();
-     
+    
     int8_t result = bme280_init(&bme280_device);
+    printf("BME280_OK = %d\n", result);
 
-    if(result == ESP_OK) {
+    if(result == BME280_OK) {
         printf("bme280 configured\n");
-
+        
         
     }
     else {
@@ -347,7 +434,7 @@ void bme280_initialize() {
 
     result = bme280_set_sensor_settings(settings_sel, &bme280_device_settings, &bme280_device);
 
-    if(result == ESP_OK) {
+    if(result == BME280_OK) {
         printf("BME280 sensor settings set\n");
     }
     else {
@@ -355,7 +442,7 @@ void bme280_initialize() {
     }
 
     result = bme280_set_sensor_mode(BME280_POWERMODE_NORMAL, &bme280_device);
-    if(result == ESP_OK) {
+    if(result == BME280_OK) {
         printf("BME280 powermode set\n");
     }
     else {
@@ -393,8 +480,8 @@ void bme280_read() {
     //uint8_t reg = 0xF7;
 
     // trasmit command or something
-    esp_err_t result = bme280_get_sensor_data(BME280_TEMP | BME280_PRESS | BME280_HUM, &bme280_comp_data, &bme280_device);
-    if(result == ESP_OK) {
+    uint8_t result = bme280_get_sensor_data(BME280_TEMP | BME280_PRESS | BME280_HUM, &bme280_comp_data, &bme280_device);
+    if(result == BME280_OK) {
         
 
         printf("bme280 Temperature: %.2f F (%.2f C)\n", (bme280_comp_data.temperature * (9.0f/5.0f) + 32.0f), bme280_comp_data.temperature);
@@ -436,11 +523,16 @@ void bme280_read() {
 
 // put this bosch bullshit in a separate file
 BME280_INTF_RET_TYPE bme280_i2c_read(uint8_t reg_addr, uint8_t *data, uint32_t len, void *intf_ptr) {
+
     i2c_system_t *i2c_ptr = (i2c_system_t *)intf_ptr;
 
-    esp_err_t result;
+    uint8_t result;
 
     result = i2c_master_transmit_receive(i2c_ptr->bme280, &reg_addr, 1, data, len, -1);
+    printf("first bme280 read: %d\n", result);
+    result = i2c_master_transmit_receive(i2c_ptr->bme280, &reg_addr, 1, data, len, -1);
+    printf("second bme280 read: %d\n", result);
+    
 
     
 
@@ -451,7 +543,8 @@ BME280_INTF_RET_TYPE bme280_i2c_read(uint8_t reg_addr, uint8_t *data, uint32_t l
        esp_err_to_name(result));
     */// end debug -------------------------------------------------
 
-    if(result != ESP_OK) {
+    if(result != BME280_OK) {
+        printf("BME280 Read Failure\n");
         return result;
     }
     
@@ -471,14 +564,15 @@ BME280_INTF_RET_TYPE bme280_i2c_write(uint8_t reg_addr, const uint8_t *data, uin
     for(int i = 0; i < len; i++) {
         buffer[i + 1] = data[i];
     }
-    esp_err_t result;
+    uint8_t result;
     result = i2c_master_transmit(i2c_ptr->bme280, buffer, len + 1, -1);
-    if(result == ESP_OK) {
+    if(result != BME280_OK) {
+        printf("BME280 Write Failure\n");
         return result;
     }
-    else {
-        return result;
-    }
+    
+    return result;
+    
     //return i2c_master_transmit(i2c_ptr->bme280, buffer, len + 1, -1);
 
 }
@@ -488,7 +582,7 @@ void bme280_delay_us(uint32_t period, void *intf_ptr) {
 }
 void bme280_test_chip_id()
 {
-    uint8_t reg = 0xD0;
+    uint8_t reg = 0xD0;     // address of the chip id (0x60)
     uint8_t chip_id;
 
     esp_err_t result = i2c_master_transmit_receive(
