@@ -21,6 +21,7 @@ void bme280_test_chip_id(void);
 void i2c_init(void);
 void adc_init(void);
 void sht31_read(void);
+void veml7700_init(void);
 void veml7700_read(void);
 void bme280_initialize();
 void bme280_read(void);
@@ -58,6 +59,7 @@ void app_main() {
     i2c_init();
     adc_init();
     bme280_initialize();
+    veml7700_init();
     printf("garden controller online\n");
 
     while(true) {
@@ -68,6 +70,8 @@ void app_main() {
         bme280_read();
         printf("\n");
         ml8511_read();
+        printf("\n");
+        veml7700_read();
         
     }
         
@@ -177,6 +181,8 @@ void ml8511_read() {
     vTaskDelay(pdMS_TO_TICKS(2000));
 }
 
+
+
 void sht31_read() {
 
     // TODO: move table to readme probably
@@ -254,6 +260,44 @@ void sht31_read() {
 
     }
 }
+void veml7700_init() {
+    
+    // just checking id first, will run an actual configuration latttter
+    printf("Initializing VEML7700\n");
+
+    uint8_t cmd = 0x07;     // register that holds device id
+    uint8_t data[2];        // 2 bytes of data
+
+    esp_err_t result = i2c_master_transmit_receive(i2c.veml7700, &cmd, 1, data, 2, 100);
+
+    if(result == ESP_OK) {
+        uint16_t device_id = data[0] | ((uint16_t)data[1] << 8);
+        printf("VEML7700 device ID: 0x%04X\n", device_id);
+    }
+    else {
+        printf("VEML7700 initialization failed: %s\n", esp_err_to_name(result));
+    }
+/*
+    Config register (0x00)
+    Bit:  15 14 13  12 11   10          9  8  7  6          5  4        3  2        1           0
+          ────────  ─────   ──          ──────────          ─────       ────        ────        ─
+          Reserved   Gain   Reserved    integration time    Persist     Reserved    INT_EN      Shutdown
+          set 000b          set 0b                                      set 00b     interrupt
+
+          000 00 0 0001 01 00 0 0
+*/
+    cmd = 0x00;     // config register
+    uint8_t config[] = {cmd, 0b01010000, 0b00000000};
+
+    result = i2c_master_transmit(i2c.veml7700, config, 3, 100);
+    if(result == ESP_OK) {
+        printf("VEML7700 Configuration Success\n");
+    }
+    else {
+        printf("VEML7700 Configuration Faled, %s\n", esp_err_to_name(result));
+    }
+    
+}
 
 void veml7700_read() {
     /*
@@ -262,6 +306,8 @@ void veml7700_read() {
     ALS (Ambient Light Sensor)
     The VEML7700 contains actual six  user accessible 16 bit command codes for operation control, parameter setup, and result buffering. All
     registers are accessible via I2C communication.
+
+    the VEML7700 sends its 16-bit register data low byte first.
 
     The least significant bit (LSB) defines read or write mode.
     According 8 bit the bus address is then 0010 0000 = 20h for
@@ -360,6 +406,35 @@ void veml7700_read() {
           ───────────────────           ─────────────────
         Slave address option code       Device ID code                 
     */
+    uint8_t cmd = 0x04;     // command code. pretty much just register? should I name it reg like before?
+
+    uint8_t data[2];        // 16 bits of data split into 2 bytes
+
+    uint16_t als_output;
+    uint16_t white_output;
+
+    esp_err_t result = i2c_master_transmit_receive(i2c.veml7700, &cmd, 1, data, 2, 100);
+
+    if(result == ESP_OK) {
+        als_output = data[0] | ((uint16_t)data[1] << 8);
+        printf("\nVEML7700 ALS Read: %d\n", als_output);
+    }
+    else {
+        printf("\nVEML7700 ALS Read Fail, %s\n", esp_err_to_name(result));
+    }
+
+    cmd = 0x05;
+    result = i2c_master_transmit_receive(i2c.veml7700, &cmd, 1, data, 2, 100);
+
+    if(result == ESP_OK) {
+        white_output = data[0] | ((uint16_t)data[1] << 8);
+        printf("VEML7700 White Channel Read: %d\n", white_output);
+    }
+    else {
+        printf("\nVEML7700 White Channel Read Fail, %s\n", esp_err_to_name(result));
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(2000));
 
 }
 
